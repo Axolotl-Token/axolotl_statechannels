@@ -16,7 +16,9 @@ import {DBAdmin} from '..';
 import {ARTIFACTS_DIR} from '../../jest/chain-setup';
 
 import {ServerWalletNode} from './server-wallet-node';
+import {setupUnhandledErrorListeners} from './utils';
 
+setupUnhandledErrorListeners();
 setupNode().then(serverNode => serverNode.listen());
 
 enum Partcipants {

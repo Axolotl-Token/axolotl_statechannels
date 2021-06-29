@@ -7,6 +7,10 @@ import {ethers} from 'ethers';
 import {waitUntilUsed} from 'tcp-port-used';
 
 import {deploy} from '../../deployment/deploy';
+
+import {setupUnhandledErrorListeners} from './utils';
+
+setupUnhandledErrorListeners();
 setupGanache();
 
 async function setupGanache() {
