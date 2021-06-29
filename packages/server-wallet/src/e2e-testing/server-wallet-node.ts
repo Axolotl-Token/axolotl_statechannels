@@ -1,8 +1,8 @@
-import {CreateChannelParams} from '@statechannels/client-api-schema';
+import {CreateChannelParams, UpdateChannelParams} from '@statechannels/client-api-schema';
 import express, {Express} from 'express';
 
 import {WalletConfig} from '../config';
-import {ObjectiveDoneResult, Wallet} from '../wallet';
+import {ObjectiveDoneResult, UpdateChannelResult, Wallet} from '../wallet';
 import {SocketIOMessageService} from '../message-service/socket-io-message-service';
 import {WalletObjective} from '../models/objective';
 
@@ -16,7 +16,17 @@ type CloseChannelRequest = {
   type: 'CloseChannel';
   jobId: string;
 };
-export type ServerOperationRequest = CreateChannelRequest | CloseChannelRequest;
+
+type UpdateChannelRequest = {
+  type: 'UpdateChannel';
+  jobId: string;
+  updateParams: UpdateChannelParams;
+};
+export type ServerOperationRequest =
+  | CreateChannelRequest
+  | CloseChannelRequest
+  | UpdateChannelRequest;
+
 export class ServerWalletNode {
   private approvedObjectives = new Map<string, WalletObjective>();
   private jobChannelMap = new Map<string, string>();
@@ -51,7 +61,9 @@ export class ServerWalletNode {
       res.end();
     });
   }
-  private async handleWalletRequest(request: ServerOperationRequest): Promise<ObjectiveDoneResult> {
+  private async handleWalletRequest(
+    request: ServerOperationRequest
+  ): Promise<ObjectiveDoneResult | UpdateChannelResult> {
     const handlers: Record<
       ServerOperationRequest['type'],
       (req: any) => Promise<ObjectiveDoneResult>
@@ -68,6 +80,15 @@ export class ServerWalletNode {
 
         this.jobChannelMap.set(request.jobId, result.channelId);
         return result.done;
+      },
+      UpdateChannel: async (req: UpdateChannelRequest) => {
+        const channelId = this.jobChannelMap.get(req.jobId);
+        if (!channelId) throw new Error('No channel id found');
+        const {allocations, appData} = req.updateParams;
+        const result = await this.serverWallet.updateChannel(channelId, allocations, appData);
+
+        this.jobChannelMap.set(req.jobId, result.channelId);
+        return result;
       },
     };
 
