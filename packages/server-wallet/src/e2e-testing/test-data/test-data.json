@@ -31,37 +31,14 @@
           "assetHolderAddress": "0x9eD274314f0fB37837346C425D3cF28d89ca9599"
         }
       ],
-      "appDefinition": "0x0000000000000000000000000000000000000000",
+      "appDefinition": "0x0000000000000000000000000000000000000001",
       "appData": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "fundingStrategy": "Direct",
       "challengeDuration": 86400
     }
   },
-  {
-    "type": "UpdateChannel",
-     
-    "updateParams": {
-      "allocations": [
-        {
-          "allocationItems": [
-            {
-              "destination": "0x00000000000000000000000050Bcf60D1d63B7DD3DAF6331a688749dCBD65d96",
-              "amount": "0x04"
-            },
-            {
-              "destination": "0x000000000000000000000000632d0b05c78A83cEd439D3bd6C710c4814D3a6db",
-              "amount": "0x01"
-            }
-          ],
-          "assetHolderAddress": "0x9eD274314f0fB37837346C425D3cF28d89ca9599"
-        }
-      ],
-      "appData": "0x0000000000000000000000000000000000000000000000000000000000000001"
-    },
-    "jobId": "C1"
-  },
    {
-    "type": "UpdateChannel",
+    "type": "UpdateChannel",  
     "updateParams": {
       "allocations": [
         {
