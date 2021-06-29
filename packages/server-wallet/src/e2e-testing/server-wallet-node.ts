@@ -22,7 +22,7 @@ export class ServerWalletNode {
   private jobChannelMap = new Map<string, string>();
 
   private server: Express;
-  private constructor(private serverWallet: Wallet, private port: number) {
+  private constructor(private serverWallet: Wallet, public port: number) {
     this.serverWallet.on('ObjectiveProposed', async o => {
       // TODO: The wallet should not be emitting proposed objectives multiple times
       if (!this.approvedObjectives.has(o.objectiveId)) {
