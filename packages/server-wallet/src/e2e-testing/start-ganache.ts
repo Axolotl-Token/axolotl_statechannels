@@ -46,8 +46,13 @@ async function setupGanache() {
     gasPrice: '0x1',
     verbose: false,
   };
+  // These seem to be needed to get ganache to use the correct chain id
+  const workaroundOptions = {
+    _chainId: commandArguments.chainId,
+    _chainIdRpc: commandArguments.chainId,
+  };
 
-  const server = ganache.server(serverOptions);
+  const server = ganache.server({...serverOptions, ...workaroundOptions});
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   server.listen(commandArguments.port, () => {});
 
