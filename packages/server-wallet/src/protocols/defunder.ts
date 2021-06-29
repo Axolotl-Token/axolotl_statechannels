@@ -126,20 +126,20 @@ export class Defunder {
     } else if (adjudicatorStatus.channelMode === 'Finalized' && shouldSubmitTx) {
       // If there are states on the adjuciator status we know the channel was finalized via challenge
       // Otherwise we need to use the conclusion proof from the channel
-      const state = adjudicatorStatus.states.length > 0 ? adjudicatorStatus.states[0] : supported;
-      await ChainServiceRequest.insertOrUpdate(channel.channelId, 'pushOutcome', tx);
+      if (adjudicatorStatus.states.length > 0) {
+        await ChainServiceRequest.insertOrUpdate(channel.channelId, 'pushOutcome', tx);
 
-      response.queueChainRequest([
-        {
-          type: 'PushOutcomeAndWithdraw',
-          state,
-          challengerAddress: channel.myAddress,
-        },
-      ]);
+        response.queueChainRequest([
+          {
+            type: 'PushOutcomeAndWithdraw',
+            state: adjudicatorStatus.states[0],
+            challengerAddress: channel.myAddress,
+          },
+        ]);
 
-      didSubmitTransaction = true;
+        didSubmitTransaction = true;
+      }
     }
-
     return {isChannelDefunded: false, didSubmitTransaction};
   }
 
