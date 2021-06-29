@@ -5,8 +5,6 @@ import * as jsonfile from 'jsonfile';
 import {TEST_ACCOUNTS} from '@statechannels/devtools';
 import yargs from 'yargs/yargs';
 import {hideBin} from 'yargs/helpers';
-/* eslint-disable no-process-env */
-import {providers} from 'ethers';
 import _ from 'lodash';
 
 import {
@@ -106,8 +104,6 @@ async function setupNode(): Promise<ServerWalletNode> {
   // eslint-disable-next-line no-process-env
   process.env = {...process.env, ...contractArtifacts};
 
-  const provider = new providers.JsonRpcProvider(rpcEndPoint);
-  setInterval(() => provider.send('evm_mine', []), 1000);
   const serverNode = await ServerWalletNode.create(
     walletConfig,
     roleConfig.messagePort,
