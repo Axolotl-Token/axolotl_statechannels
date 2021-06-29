@@ -51,6 +51,7 @@ export class AdjudicatorStatusModel extends Model implements RequiredColumns {
         blockNumber,
         blockTimestamp,
         finalizesAt,
+        states: [],
       });
     }
     const result = await AdjudicatorStatusModel.query(knex)
