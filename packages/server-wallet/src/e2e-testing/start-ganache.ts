@@ -18,7 +18,7 @@ async function setupGanache() {
     .option('artifactFile', {
       alias: 'af',
       description: 'The file to write the artifacts to',
-      default: 'contract_artifacts.json',
+      default: 'temp/contract_artifacts.json',
     }).argv;
   // eslint-disable-next-line no-process-env
   process.env.GANACHE_PORT = commandArguments.port.toString();
