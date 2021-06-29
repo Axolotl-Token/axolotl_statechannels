@@ -1,6 +1,6 @@
 [{
     "type": "CreateChannel",
-    "jobId": "abc",
+    "jobId": "C1",
     "channelParams": {
         "participants": [
             {
@@ -36,4 +36,4 @@
     }
 }, {
     "type": "CloseChannel",
-    "jobId": "abc"}]
+    "jobId": "C1"}]
