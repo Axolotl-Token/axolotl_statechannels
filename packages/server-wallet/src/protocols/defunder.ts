@@ -101,7 +101,11 @@ export class Defunder {
 
     let didSubmitTransaction = false;
     const shouldSubmitTx = shouldSubmitCollaborativeTx(channel, objective);
-
+    const {supported} = channel;
+    // supported is defined (if the wallet is functioning correctly), but the compiler is not aware of that
+    if (!supported) {
+      throw new Error('channel.supported should be defined in directDefunder');
+    }
     /**
      * TODO: The below if/else does not account for the following scenario:
      * - Channel is finalized.
@@ -115,22 +119,20 @@ export class Defunder {
     ) {
       await ChainServiceRequest.insertOrUpdate(channel.channelId, 'withdraw', tx);
 
-      // supported is defined (if the wallet is functioning correctly), but the compiler is not aware of that
-      if (!channel.supported) {
-        throw new Error('channel.supported should be defined in directDefunder');
-      }
-
       response.queueChainRequest([
         {type: 'ConcludeAndWithdraw', finalizationProof: channel.support},
       ]);
       didSubmitTransaction = true;
     } else if (adjudicatorStatus.channelMode === 'Finalized' && shouldSubmitTx) {
-      // TODO: we are assuming that we submitted the challenge.
-      // This is not a valid assumption as the defunder protocol can be run no matter how the channel was finalized
+      // If there are states on the adjuciator status we know the channel was finalized via challenge
+      // Otherwise we need to use the conclusion proof from the channel
+      const state = adjudicatorStatus.states.length > 0 ? adjudicatorStatus.states[0] : supported;
+      await ChainServiceRequest.insertOrUpdate(channel.channelId, 'pushOutcome', tx);
+
       response.queueChainRequest([
         {
           type: 'PushOutcomeAndWithdraw',
-          state: adjudicatorStatus.states[0],
+          state,
           challengerAddress: channel.myAddress,
         },
       ]);
