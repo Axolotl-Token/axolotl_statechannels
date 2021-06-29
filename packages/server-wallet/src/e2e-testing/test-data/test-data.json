@@ -34,4 +34,6 @@
         "fundingStrategy": "Direct",
         "challengeDuration": 86400
     }
-}]
+}, {
+    "type": "CloseChannel",
+    "jobId": "abc"}]
