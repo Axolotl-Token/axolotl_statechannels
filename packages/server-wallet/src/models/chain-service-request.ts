@@ -37,20 +37,24 @@ export class ChainServiceRequest extends Model implements RequiredColumns {
     channelId: Bytes32,
     request: Request,
     tx: TransactionOrKnex
-  ): Promise<void> {
+  ): Promise<{isNew: boolean}> {
     return tx.transaction(async trx => {
       const insertQuery = trx(this.tableName).insert({
         channelId,
         request,
         timestamp: new Date().toISOString(),
       });
-      return trx.raw(
+      const result = await trx.raw(
         `
           ${insertQuery} ON CONFLICT (channel_id, request)
           DO UPDATE SET
             (timestamp, attempts) = (EXCLUDED.timestamp, chain_service_requests.attempts + 1)
+          RETURNING *;
         `
       );
+      // ChainServiceRequests get instantiated with attempts = 1
+      const isNew = result.rows[0].attempts === 1;
+      return {isNew};
     });
   }
 
