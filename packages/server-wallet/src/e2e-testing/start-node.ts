@@ -19,7 +19,10 @@ import {ServerWalletNode} from './server-wallet-node';
 import {setupUnhandledErrorListeners} from './utils';
 
 setupUnhandledErrorListeners();
-setupNode().then(serverNode => serverNode.listen());
+setupNode().then(serverNode => {
+  console.log(`Server Wallet node listening on port ${serverNode.port}`);
+  serverNode.listen();
+});
 
 enum Partcipants {
   A = 'A',
