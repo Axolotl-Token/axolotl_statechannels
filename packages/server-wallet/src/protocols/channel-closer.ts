@@ -66,6 +66,7 @@ export class ChannelCloser implements Cranker<WalletObjective<CloseChannel>> {
       );
 
       if (!(await this.areAllFinalStatesSigned(objective.objectiveId, channel, tx, response))) {
+        response.queueSendObjective(objective, channel.myIndex, channel.participants);
         response.queueChannel(channel);
         return WaitingFor.theirFinalState;
       }
