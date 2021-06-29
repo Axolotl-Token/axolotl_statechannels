@@ -148,7 +148,7 @@ export class Wallet extends EventEmitter<WalletEvents> {
           toAddress: makeDestination(ai.destination),
           amount: ai.amount as Uint256,
         }));
-
+        await this._engine.store.updateFunding(e.channelId, e.newHoldings, e.assetHolderAddress);
         await this._engine.store.updateTransferredOut(
           e.channelId,
           e.assetHolderAddress,
