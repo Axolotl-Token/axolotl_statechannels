@@ -108,11 +108,13 @@ async function setupNode(): Promise<ServerWalletNode> {
 
   // eslint-disable-next-line no-process-env
   process.env = {...process.env, ...contractArtifacts};
-
+  const peerLoadServerPort = role === 'A' ? ROLES['B'].loadServerPort : ROLES['A'].loadServerPort;
   const serverNode = await ServerWalletNode.create(
     walletConfig,
     roleConfig.messagePort,
-    roleConfig.loadServerPort
+    roleConfig.loadServerPort,
+    role,
+    [peerLoadServerPort]
   );
 
   for (const peerPort of roleConfig.peerMessagePorts) {
