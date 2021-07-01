@@ -5,11 +5,11 @@ import {writeFile} from 'jsonfile';
 import ganache from 'ganache-core';
 import {ethers} from 'ethers';
 import {waitUntilUsed} from 'tcp-port-used';
+import chalk from 'chalk';
 
 import {deploy} from '../../deployment/deploy';
 
 import {setupUnhandledErrorListeners} from './utils';
-
 setupUnhandledErrorListeners();
 setupGanache();
 
@@ -73,10 +73,10 @@ async function setupGanache() {
       }
     });
   }, commandArguments.miningInterval);
-  console.log(`Ganche started on port ${commandArguments.port}`);
+  console.log(chalk.green(`Ganche started on port ${commandArguments.port}`));
   const endpoint = `http://localhost:${commandArguments.port}`;
   const deployResults = await deploy(endpoint);
   await writeFile(commandArguments.artifactFile, deployResults);
 
-  console.log(`Contract artifacts written to ${commandArguments.artifactFile}`);
+  console.log(chalk.green(`Contract artifacts written to ${commandArguments.artifactFile}`));
 }

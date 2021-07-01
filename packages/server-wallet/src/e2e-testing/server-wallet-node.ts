@@ -1,13 +1,15 @@
+import util from 'util';
+
 import {CreateChannelParams, UpdateChannelParams} from '@statechannels/client-api-schema';
 import express, {Express} from 'express';
 import {post} from 'httpie';
 import _ from 'lodash';
+import chalk from 'chalk';
 
 import {WalletConfig} from '../config';
 import {ObjectiveDoneResult, UpdateChannelResult, Wallet} from '../wallet';
 import {SocketIOMessageService} from '../message-service/socket-io-message-service';
 import {WalletObjective} from '../models/objective';
-
 export type Job = Step[];
 type CreateChannelStep = {
   type: 'CreateChannel';
@@ -60,16 +62,15 @@ export class ServerWalletNode {
       this.removeOldSteps(step.jobId, step.step);
 
       this.jobToChannelMap.set(step.jobId, step.channelId);
-
-      await this.processJobs();
       res.end();
+      await this.processJobs();
     });
     this.server.post('/', async (req, res) => {
       const requests: Step[] = req.body;
 
       this.updateJobQueue(requests);
-      await this.processJobs();
       res.end();
+      await this.processJobs();
     });
   }
 
@@ -88,6 +89,7 @@ export class ServerWalletNode {
       const existing = this.jobQueue[jobId] ?? [];
       this.jobQueue[jobId] = _.merge(existing, byJobId[jobId]).sort((s1, s2) => s1.step - s2.step);
     }
+    console.log(chalk.yellow(`Updated job queue with ${steps.length} steps`));
   }
 
   private getChannelIdForJob(jobId: string): string {
@@ -108,10 +110,19 @@ export class ServerWalletNode {
         const result = await this.handleStep(currentStep);
 
         console.log(
-          `Processed ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
+          chalk.yellow(
+            `Processed ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
+          )
         );
         if (result.type !== 'Success') {
-          throw new Error('TODO: Failed to handle wallet request');
+          console.error(
+            chalk.redBright(
+              `Step ${currentStep.step} for job ${
+                currentStep.jobId
+              } failed with result ${util.inspect(result)}`
+            )
+          );
+          throw new Error(`Wallet returned ${result.type}`);
         }
 
         await this.broadcastJobProgress(currentStep, result.channelId);

@@ -11,6 +11,7 @@
     "@statechannels/wallet-core": "0.14.1",
     "@statechannels/wasm-utils": "0.1.6",
     "@statechannels/wire-format": "0.9.1",
+    "chalk": "^4.1.1",
     "ethers": "5.0.12",
     "eventemitter3": "4.0.7",
     "fp-ts": "2.7.0",

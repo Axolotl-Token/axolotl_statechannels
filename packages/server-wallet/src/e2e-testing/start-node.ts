@@ -6,6 +6,7 @@ import {TEST_ACCOUNTS} from '@statechannels/devtools';
 import yargs from 'yargs/yargs';
 import {hideBin} from 'yargs/helpers';
 import _ from 'lodash';
+import chalk from 'chalk';
 
 import {
   defaultTestWalletConfig,
@@ -17,10 +18,9 @@ import {ARTIFACTS_DIR} from '../../jest/chain-setup';
 
 import {ServerWalletNode} from './server-wallet-node';
 import {setupUnhandledErrorListeners} from './utils';
-
 setupUnhandledErrorListeners();
 setupNode().then(serverNode => {
-  console.log(`Server Wallet node listening on port ${serverNode.port}`);
+  console.log(chalk.green(`Server Wallet node listening on port ${serverNode.port}`));
   serverNode.listen();
 });
 
