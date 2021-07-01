@@ -1,44 +1,42 @@
 import {CreateChannelParams, UpdateChannelParams} from '@statechannels/client-api-schema';
 import express, {Express} from 'express';
 import {post} from 'httpie';
+import _ from 'lodash';
 
 import {WalletConfig} from '../config';
 import {ObjectiveDoneResult, UpdateChannelResult, Wallet} from '../wallet';
 import {SocketIOMessageService} from '../message-service/socket-io-message-service';
 import {WalletObjective} from '../models/objective';
-type RegisterJobRequest = {
-  jobId: string;
-  channelId: string;
-};
 
-type CreateChannelRequest = {
+export type Job = Step[];
+type CreateChannelStep = {
   type: 'CreateChannel';
   serverId: string;
   jobId: string;
+  step: number;
   channelParams: CreateChannelParams;
 };
 
-type CloseChannelRequest = {
+type CloseChannelStep = {
   serverId: string;
   type: 'CloseChannel';
   jobId: string;
+  step: number;
 };
 
-type UpdateChannelRequest = {
+type UpdateChannelStep = {
   serverId: string;
   type: 'UpdateChannel';
   jobId: string;
+  step: number;
   updateParams: UpdateChannelParams;
 };
-export type ServerOperationRequest =
-  | CreateChannelRequest
-  | CloseChannelRequest
-  | UpdateChannelRequest;
+export type Step = CreateChannelStep | CloseChannelStep | UpdateChannelStep;
 
 export class ServerWalletNode {
   private approvedObjectives = new Map<string, WalletObjective>();
-  private jobChannelMap = new Map<string, string>();
-
+  private jobQueue: Record<string, Job> = {};
+  private jobToChannelMap: Map<string, string> = new Map<string, string>();
   private server: Express;
   private constructor(
     private serverWallet: Wallet,
@@ -56,74 +54,98 @@ export class ServerWalletNode {
     });
     this.server = express();
     this.server.use(express.json());
-    this.server.post('/registerJobs', async (req, res) => {
-      const requests: RegisterJobRequest[] = req.body;
-      for (const request of requests) {
-        this.jobChannelMap.set(request.jobId, request.channelId);
-      }
+    this.server.post('/jobStepCompleted', async (req, res) => {
+      const step: Step & {channelId: string} = req.body;
+
+      this.removeOldSteps(step.jobId, step.step);
+
+      this.jobToChannelMap.set(step.jobId, step.channelId);
+
+      await this.processJobs();
       res.end();
     });
     this.server.post('/', async (req, res) => {
-      const requests: ServerOperationRequest[] = req.body;
-      for (const serverRequest of requests) {
-        if (serverRequest.serverId === this.serverId) {
-          const result = await this.handleWalletRequest(serverRequest);
-          if (result.type !== 'Success') {
-            res
-              .status(500)
-              .send(
-                `ServerOperationRequest failed ${JSON.stringify(
-                  serverRequest
-                )} with wallet response ${JSON.stringify(result)}`
-              )
-              .end();
-          }
-        }
-      }
+      const requests: Step[] = req.body;
 
+      this.updateJobQueue(requests);
+      await this.processJobs();
       res.end();
     });
   }
 
-  private async broadcastJobId(jobId: string, channelId: string): Promise<void> {
-    for (const peerPort of this.peerPorts) {
-      console.log(peerPort);
-      await post(`http://localhost:${peerPort}/registerJobs`, {body: [{jobId, channelId}]});
+  private removeOldSteps(jobId: string, step: number): void {
+    const existing = this.jobQueue[jobId] ?? [];
+    this.jobQueue[jobId] = existing.filter(s => s.step > step);
+  }
+  private updateJobQueue(steps: Step[]): void {
+    const byJobId = steps.reduce((obj: Record<string, Step[]>, s) => {
+      const existing = obj[s.jobId] ?? [];
+      obj[s.jobId] = existing.concat([s]);
+      return obj;
+    }, {});
+
+    for (const jobId of Object.keys(byJobId)) {
+      const existing = this.jobQueue[jobId] ?? [];
+      this.jobQueue[jobId] = _.merge(existing, byJobId[jobId]).sort((s1, s2) => s1.step - s2.step);
     }
   }
 
-  private async handleWalletRequest(
-    request: ServerOperationRequest
-  ): Promise<ObjectiveDoneResult | UpdateChannelResult> {
-    const handlers: Record<
-      ServerOperationRequest['type'],
-      (req: any) => Promise<ObjectiveDoneResult>
-    > = {
-      CreateChannel: async (request: CreateChannelRequest) => {
-        const [result] = await this.serverWallet.createChannels([request.channelParams]);
-        this.jobChannelMap.set(request.jobId, result.channelId);
-        await this.broadcastJobId(request.jobId, result.channelId);
-        return result.done;
-      },
-      CloseChannel: async (request: CloseChannelRequest) => {
-        const channelId = this.jobChannelMap.get(request.jobId);
-        if (!channelId) throw new Error('No channel id found');
-        const [result] = await this.serverWallet.closeChannels([channelId]);
+  private getChannelIdForJob(jobId: string): string {
+    const entry = this.jobToChannelMap.get(jobId);
+    if (!entry) {
+      throw new Error(`No channel id for ${jobId}`);
+    }
+    return entry;
+  }
 
-        this.jobChannelMap.set(request.jobId, result.channelId);
+  private async processJobs() {
+    for (const jobId of Object.keys(this.jobQueue)) {
+      while (
+        this.jobQueue[jobId].length > 0 &&
+        this.jobQueue[jobId][0].serverId === this.serverId
+      ) {
+        const currentStep = this.jobQueue[jobId][0];
+        const result = await this.handleStep(currentStep);
+
+        console.log(
+          `Processed ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
+        );
+        if (result.type !== 'Success') {
+          throw new Error('TODO: Failed to handle wallet request');
+        }
+
+        await this.broadcastJobProgress(currentStep, result.channelId);
+        this.removeOldSteps(jobId, currentStep.step);
+      }
+    }
+  }
+  private async broadcastJobProgress(step: Step, channelId: string): Promise<void> {
+    for (const peerPort of this.peerPorts) {
+      await post(`http://localhost:${peerPort}/jobStepCompleted`, {body: {...step, channelId}});
+    }
+  }
+
+  private async handleStep(step: Step): Promise<ObjectiveDoneResult | UpdateChannelResult> {
+    const handlers: Record<Step['type'], (req: any) => Promise<ObjectiveDoneResult>> = {
+      CreateChannel: async (request: CreateChannelStep) => {
+        const [result] = await this.serverWallet.createChannels([request.channelParams]);
+        this.jobToChannelMap.set(request.jobId, result.channelId);
         return result.done;
       },
-      UpdateChannel: async (req: UpdateChannelRequest) => {
-        const channelId = this.jobChannelMap.get(req.jobId);
-        if (!channelId) throw new Error('No channel id found');
+      CloseChannel: async (request: CloseChannelStep) => {
+        const channelId = this.getChannelIdForJob(request.jobId);
+        const [result] = await this.serverWallet.closeChannels([channelId]);
+        return result.done;
+      },
+      UpdateChannel: async (req: UpdateChannelStep) => {
+        const channelId = this.getChannelIdForJob(step.jobId);
         const {allocations, appData} = req.updateParams;
         const result = await this.serverWallet.updateChannel(channelId, allocations, appData);
 
-        this.jobChannelMap.set(req.jobId, result.channelId);
         return result;
       },
     };
-    return handlers[request.type](request);
+    return handlers[step.type](step);
   }
 
   public async destroy(): Promise<void> {

@@ -3,6 +3,7 @@
     "type": "CreateChannel",
     "jobId": "C1",
     "serverId": "A",
+    "step":1,
     "channelParams": {
       "participants": [
         {
@@ -41,6 +42,7 @@
     "type": "UpdateChannel",
     "serverId": "A",
     "jobId": "C1",
+    "step":2,
     "updateParams": {
       "allocations": [
         {
@@ -64,6 +66,7 @@
     "type": "UpdateChannel",
     "serverId": "B",
     "jobId": "C1",
+    "step":3,
     "updateParams": {
       "allocations": [
         {
@@ -85,6 +88,7 @@
   },
   {
     "type": "CloseChannel",
+    "step":4,
     "serverId": "B",
     "jobId": "C1"
   }
