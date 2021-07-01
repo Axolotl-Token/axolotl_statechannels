@@ -10,6 +10,7 @@ import {WalletConfig} from '../config';
 import {ObjectiveDoneResult, UpdateChannelResult, Wallet} from '../wallet';
 import {SocketIOMessageService} from '../message-service/socket-io-message-service';
 import {WalletObjective} from '../models/objective';
+
 export type Job = Step[];
 type CreateChannelStep = {
   type: 'CreateChannel';
@@ -107,13 +108,13 @@ export class ServerWalletNode {
         this.jobQueue[jobId][0].serverId === this.serverId
       ) {
         const currentStep = this.jobQueue[jobId][0];
-        const result = await this.handleStep(currentStep);
-
         console.log(
-          chalk.yellow(
-            `Processed ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
+          chalk.green(
+            `Starting ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
           )
         );
+        const result = await this.handleStep(currentStep);
+
         if (result.type !== 'Success') {
           console.error(
             chalk.redBright(
@@ -125,8 +126,13 @@ export class ServerWalletNode {
           throw new Error(`Wallet returned ${result.type}`);
         }
 
-        await this.broadcastJobProgress(currentStep, result.channelId);
         this.removeOldSteps(jobId, currentStep.step);
+        await this.broadcastJobProgress(currentStep, result.channelId);
+        console.log(
+          chalk.magenta(
+            `Finished ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
+          )
+        );
       }
     }
   }
@@ -140,16 +146,20 @@ export class ServerWalletNode {
     const handlers: Record<Step['type'], (req: any) => Promise<ObjectiveDoneResult>> = {
       CreateChannel: async (request: CreateChannelStep) => {
         const [result] = await this.serverWallet.createChannels([request.channelParams]);
+
         this.jobToChannelMap.set(request.jobId, result.channelId);
         return result.done;
       },
       CloseChannel: async (request: CloseChannelStep) => {
         const channelId = this.getChannelIdForJob(request.jobId);
+
         const [result] = await this.serverWallet.closeChannels([channelId]);
+
         return result.done;
       },
       UpdateChannel: async (req: UpdateChannelStep) => {
         const channelId = this.getChannelIdForJob(step.jobId);
+
         const {allocations, appData} = req.updateParams;
         const result = await this.serverWallet.updateChannel(channelId, allocations, appData);
 
