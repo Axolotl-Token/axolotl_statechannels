@@ -5,12 +5,12 @@ import express, {Express} from 'express';
 import {post} from 'httpie';
 import _ from 'lodash';
 import chalk from 'chalk';
+import Lock from 'async-lock';
 
 import {WalletConfig} from '../config';
 import {ObjectiveDoneResult, UpdateChannelResult, Wallet} from '../wallet';
 import {SocketIOMessageService} from '../message-service/socket-io-message-service';
 import {WalletObjective} from '../models/objective';
-
 export type Job = Step[];
 type CreateChannelStep = {
   type: 'CreateChannel';
@@ -41,6 +41,8 @@ export class ServerWalletNode {
   private jobQueue: Record<string, Job> = {};
   private jobToChannelMap: Map<string, string> = new Map<string, string>();
   private server: Express;
+  private readonly lock = new Lock();
+
   private constructor(
     private serverWallet: Wallet,
     public port: number,
@@ -60,16 +62,19 @@ export class ServerWalletNode {
     this.server.post('/jobStepCompleted', async (req, res) => {
       const step: Step & {channelId: string} = req.body;
 
-      this.removeOldSteps(step.jobId, step.step);
+      await this.lock.acquire(step.jobId, async () => {
+        this.removeOldSteps(step.jobId, step.step);
 
-      this.jobToChannelMap.set(step.jobId, step.channelId);
+        this.jobToChannelMap.set(step.jobId, step.channelId);
+      });
+
       res.end();
       await this.processJobs();
     });
     this.server.post('/', async (req, res) => {
       const requests: Step[] = req.body;
 
-      this.updateJobQueue(requests);
+      await this.updateJobQueue(requests);
       res.end();
       await this.processJobs();
     });
@@ -79,7 +84,7 @@ export class ServerWalletNode {
     const existing = this.jobQueue[jobId] ?? [];
     this.jobQueue[jobId] = existing.filter(s => s.step > step);
   }
-  private updateJobQueue(steps: Step[]): void {
+  private async updateJobQueue(steps: Step[]): Promise<void> {
     const byJobId = steps.reduce((obj: Record<string, Step[]>, s) => {
       const existing = obj[s.jobId] ?? [];
       obj[s.jobId] = existing.concat([s]);
@@ -87,8 +92,12 @@ export class ServerWalletNode {
     }, {});
 
     for (const jobId of Object.keys(byJobId)) {
-      const existing = this.jobQueue[jobId] ?? [];
-      this.jobQueue[jobId] = _.merge(existing, byJobId[jobId]).sort((s1, s2) => s1.step - s2.step);
+      await this.lock.acquire(jobId, async () => {
+        const existing = this.jobQueue[jobId] ?? [];
+        this.jobQueue[jobId] = _.merge(existing, byJobId[jobId]).sort(
+          (s1, s2) => s1.step - s2.step
+        );
+      });
     }
     console.log(chalk.yellow(`Updated job queue with ${steps.length} steps`));
   }
@@ -103,37 +112,39 @@ export class ServerWalletNode {
 
   private async processJobs() {
     for (const jobId of Object.keys(this.jobQueue)) {
-      while (
-        this.jobQueue[jobId].length > 0 &&
-        this.jobQueue[jobId][0].serverId === this.serverId
-      ) {
-        const currentStep = this.jobQueue[jobId][0];
-        console.log(
-          chalk.green(
-            `Starting ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
-          )
-        );
-        const result = await this.handleStep(currentStep);
-
-        if (result.type !== 'Success') {
-          console.error(
-            chalk.redBright(
-              `Step ${currentStep.step} for job ${
-                currentStep.jobId
-              } failed with result ${util.inspect(result)}`
+      await this.lock.acquire(jobId, async () => {
+        while (
+          this.jobQueue[jobId].length > 0 &&
+          this.jobQueue[jobId][0].serverId === this.serverId
+        ) {
+          const currentStep = this.jobQueue[jobId][0];
+          console.log(
+            chalk.green(
+              `Starting ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
             )
           );
-          throw new Error(`Wallet returned ${result.type}`);
-        }
+          const result = await this.handleStep(currentStep);
 
-        this.removeOldSteps(jobId, currentStep.step);
-        await this.broadcastJobProgress(currentStep, result.channelId);
-        console.log(
-          chalk.magenta(
-            `Finished ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
-          )
-        );
-      }
+          if (result.type !== 'Success') {
+            console.error(
+              chalk.redBright(
+                `Step ${currentStep.step} for job ${
+                  currentStep.jobId
+                } failed with result ${util.inspect(result)}`
+              )
+            );
+            throw new Error(`Wallet returned ${result.type}`);
+          }
+
+          await this.removeOldSteps(jobId, currentStep.step);
+          await this.broadcastJobProgress(currentStep, result.channelId);
+          console.log(
+            chalk.magenta(
+              `Finished ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
+            )
+          );
+        }
+      });
     }
   }
   private async broadcastJobProgress(step: Step, channelId: string): Promise<void> {
