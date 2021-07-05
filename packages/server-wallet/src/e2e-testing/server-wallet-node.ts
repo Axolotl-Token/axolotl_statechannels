@@ -59,6 +59,14 @@ export class ServerWalletNode {
     });
     this.server = express();
     this.server.use(express.json());
+
+    this.server.post('/shareSteps', async (req, res) => {
+      const requests: Step[] = req.body;
+      await this.updateJobQueue(requests);
+      res.end();
+      await this.processJobs();
+    });
+
     this.server.post('/jobStepCompleted', async (req, res) => {
       const step: Step & {channelId: string} = req.body;
 
@@ -75,9 +83,16 @@ export class ServerWalletNode {
       const requests: Step[] = req.body;
 
       await this.updateJobQueue(requests);
+      await this.shareStepsWithPeers(requests);
       res.end();
       await this.processJobs();
     });
+  }
+
+  private async shareStepsWithPeers(steps: Step[]) {
+    for (const peerPort of this.peerPorts) {
+      await post(`http://localhost:${peerPort}/shareSteps`, {body: steps});
+    }
   }
 
   private removeOldSteps(jobId: string, step: number): void {
