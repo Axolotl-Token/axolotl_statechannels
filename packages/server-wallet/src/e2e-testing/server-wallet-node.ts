@@ -157,41 +157,43 @@ export class ServerWalletNode {
   }
 
   private async processJobs() {
-    for (const jobId of Object.keys(this.jobQueue)) {
-      await this.lock.acquire(jobId, async () => {
-        while (
-          this.jobQueue[jobId].length > 0 &&
-          this.jobQueue[jobId][0].serverId === this.serverId
-        ) {
-          const currentStep = this.jobQueue[jobId][0];
-          console.log(
-            chalk.green(
-              `Starting ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
-            )
-          );
-          const result = await this.handleStep(currentStep);
-
-          if (result.type !== 'Success') {
-            console.error(
-              chalk.redBright(
-                `Step ${currentStep.step} for job ${
-                  currentStep.jobId
-                } failed with result ${util.inspect(result)}`
+    await Promise.all(
+      Object.keys(this.jobQueue).map(jobId =>
+        this.lock.acquire(jobId, async () => {
+          while (
+            this.jobQueue[jobId].length > 0 &&
+            this.jobQueue[jobId][0].serverId === this.serverId
+          ) {
+            const currentStep = this.jobQueue[jobId][0];
+            console.log(
+              chalk.green(
+                `Starting ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
               )
             );
-            throw new Error(`Wallet returned ${result.type}`);
-          }
+            const result = await this.handleStep(currentStep);
 
-          await this.removeOldSteps(jobId, currentStep.step);
-          await this.broadcastJobProgress(currentStep, result.channelId);
-          console.log(
-            chalk.magenta(
-              `Finished ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
-            )
-          );
-        }
-      });
-    }
+            if (result.type !== 'Success') {
+              console.error(
+                chalk.redBright(
+                  `Step ${currentStep.step} for job ${
+                    currentStep.jobId
+                  } failed with result ${util.inspect(result)}`
+                )
+              );
+              throw new Error(`Wallet returned ${result.type}`);
+            }
+
+            await this.removeOldSteps(jobId, currentStep.step);
+            await this.broadcastJobProgress(currentStep, result.channelId);
+            console.log(
+              chalk.magenta(
+                `Finished ${currentStep.type} step for job ${currentStep.jobId} with step ${currentStep.step}`
+              )
+            );
+          }
+        })
+      )
+    );
     if (this.queueIsEmpty) {
       console.log(chalk.greenBright('All jobs processed! SUCCESS'));
     }
