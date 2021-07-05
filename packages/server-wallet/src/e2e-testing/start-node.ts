@@ -95,8 +95,10 @@ async function setupNode(): Promise<ServerWalletNode> {
         /* eslint-disable-next-line no-process-env */
         pk: TEST_ACCOUNTS[role === 'A' ? 0 : 1].privateKey,
         allowanceMode: 'MaxUint',
+        pollingInterval: 1_000,
       },
       syncConfiguration: {pollInterval: 1_000, timeOutThreshold: 60_000, staleThreshold: 10_000},
+
       privateKey: roleConfig.privateKey,
     }),
     {database: roleConfig.databaseName}
