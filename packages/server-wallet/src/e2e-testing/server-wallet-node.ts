@@ -2,7 +2,7 @@ import util from 'util';
 
 import {CreateChannelParams, UpdateChannelParams} from '@statechannels/client-api-schema';
 import express, {Express} from 'express';
-import {post} from 'httpie';
+import {get, post} from 'httpie';
 import _ from 'lodash';
 import chalk from 'chalk';
 import Lock from 'async-lock';
@@ -67,6 +67,24 @@ export class ServerWalletNode {
       await this.processJobs();
     });
 
+    this.server.get('/reset', async (req, res) => {
+      const jobIds = Object.keys(this.jobQueue);
+      await this.lock.acquire(jobIds, async () => {
+        this.jobQueue = {};
+        this.jobToChannelMap.clear();
+      });
+
+      const onlySelf = req.query['onlySelf'];
+      if (!onlySelf) {
+        await this.resetPeers();
+      }
+
+      console.log(
+        chalk.whiteBright('Job Ids have been reset. You may now use the same test file.')
+      );
+      res.end();
+    });
+
     this.server.post('/jobStepCompleted', async (req, res) => {
       const step: Step & {channelId: string} = req.body;
 
@@ -89,9 +107,22 @@ export class ServerWalletNode {
     });
   }
 
+  private get queueIsEmpty(): boolean {
+    for (const jobId of Object.keys(this.jobQueue)) {
+      if (this.jobQueue[jobId].length > 0) return false;
+    }
+    return true;
+  }
+
   private async shareStepsWithPeers(steps: Step[]) {
     for (const peerPort of this.peerPorts) {
       await post(`http://localhost:${peerPort}/shareSteps`, {body: steps});
+    }
+  }
+
+  private async resetPeers() {
+    for (const peerPort of this.peerPorts) {
+      await get(`http://localhost:${peerPort}/reset?onlySelf=false`);
     }
   }
 
@@ -160,6 +191,9 @@ export class ServerWalletNode {
           );
         }
       });
+    }
+    if (this.queueIsEmpty) {
+      console.log(chalk.greenBright('All jobs processed! SUCCESS'));
     }
   }
   private async broadcastJobProgress(step: Step, channelId: string): Promise<void> {
