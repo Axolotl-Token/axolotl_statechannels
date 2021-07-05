@@ -1,13 +1,14 @@
 <h1 align="center">
   <br>
-  <a href="https://statechannels.org"><img src="https://raw.githubusercontent.com/Axolotl-Token/token-list/master/src/200x200AXOL.png" alt="Axolotl" width="350"></a>
+  <a href="https://statechannels.org">
+    <img src="https://raw.githubusercontent.com/Axolotl-Token/token-list/master/src/200x200AXOL.png" alt="Axolotl" width="150"></a>
 </h1>
 
 <h4 align="center">Simple off-chain applications framework to enhace privacy on payments.</h4>
 
 <p align="center">
   <a href="https://circleci.com/gh/statechannels/statechannels/tree/master">
-    <img src="https://raw.githubusercontent.com/Axolotl-Token/token-list/master/src/200x200AXOL.png" alt="circleci"></a>
+     </a>
   <a href="https://lernajs.io/"><img src="https://img.shields.io/badge/maintained%20with-lerna-cc00ff.svg"/></a>
   <a href="https://research.statechannels.org/"><img src="https://img.shields.io/badge/Forums-Chat-blue"/></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
