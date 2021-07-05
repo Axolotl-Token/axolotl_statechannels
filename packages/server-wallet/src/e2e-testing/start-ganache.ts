@@ -24,7 +24,7 @@ async function setupGanache() {
     .option('miningInterval', {
       alias: 'mi',
       description: 'The duration(in ms) for how often a block should be mined.',
-      default: 500,
+      default: 2_000,
     })
     .option('chainId', {alias: 'c', description: 'The chain id to use', default: 9001})
     .option('artifactFile', {
@@ -39,7 +39,7 @@ async function setupGanache() {
   const serverOptions: ganache.IServerOptions = {
     network_id: commandArguments.chainId,
     networkId: commandArguments.chainId,
-
+    logger: {log: (msg: string) => console.log(chalk.gray(msg))},
     port: commandArguments.port,
 
     accounts: TEST_ACCOUNTS.map(a => ({
@@ -48,7 +48,7 @@ async function setupGanache() {
     })),
     gasLimit: 10_000_000,
     gasPrice: '0x1',
-    verbose: false,
+    verbose: true,
   };
   // These seem to be needed to get ganache to use the correct chain id
   const workaroundOptions = {
