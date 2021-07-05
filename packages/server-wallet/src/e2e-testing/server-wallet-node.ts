@@ -10,7 +10,7 @@ import Lock from 'async-lock';
 import {WalletConfig} from '../config';
 import {ObjectiveDoneResult, UpdateChannelResult, Wallet} from '../wallet';
 import {SocketIOMessageService} from '../message-service/socket-io-message-service';
-import {WalletObjective} from '../models/objective';
+
 export type Job = Step[];
 type CreateChannelStep = {
   type: 'CreateChannel';
@@ -37,7 +37,6 @@ type UpdateChannelStep = {
 export type Step = CreateChannelStep | CloseChannelStep | UpdateChannelStep;
 
 export class ServerWalletNode {
-  private approvedObjectives = new Map<string, WalletObjective>();
   private jobQueue: Record<string, Job> = {};
   private jobToChannelMap: Map<string, string> = new Map<string, string>();
   private server: Express;
@@ -49,14 +48,9 @@ export class ServerWalletNode {
     private readonly serverId: string,
     private peerPorts: number[]
   ) {
-    this.serverWallet.on('ObjectiveProposed', async o => {
-      // TODO: The wallet should not be emitting proposed objectives multiple times
-      if (!this.approvedObjectives.has(o.objectiveId)) {
-        this.approvedObjectives.set(o.objectiveId, o);
-
-        await this.serverWallet.approveObjectives([o.objectiveId]);
-      }
-    });
+    this.serverWallet.on('ObjectiveProposed', async o =>
+      this.serverWallet.approveObjectives([o.objectiveId])
+    );
     this.server = express();
     this.server.use(express.json());
 
